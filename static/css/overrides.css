@@ -22,3 +22,23 @@ pre, code, kbd {
 body {
   font-family: 'Raleway', sans-serif;
 }
+
+table {
+  border-collapse: collapse;
+}
+
+table tr:nth-child(even) {
+  background-color: #ddd;
+}
+
+thead tr:last-child th {
+  border-bottom: 1px solid black;
+}
+
+tbody td {
+  border-right: 1px solid #aaa;
+}
+
+tbody td:last-of-type {
+  border-right: none;
+}
