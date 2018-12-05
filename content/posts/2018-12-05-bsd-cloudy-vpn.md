@@ -3,6 +3,8 @@ title = "A partly-cloudy IPsec VPN"
 author = "Brad Ackerman"
 lastmod = 2018-12-05T11:51:00-05:00
 tags = ["VPN", "IPsec", "OpenBSD", "FreeBSD", "Cloud"]
+toc = true
+type = "post"
 draft = false
 +++
 
