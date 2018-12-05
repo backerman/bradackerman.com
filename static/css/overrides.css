@@ -1,0 +1,24 @@
+/* Fonts */
+@import url('https://fonts.googleapis.com/css?family=Halant:400,500,700|IBM+Plex+Mono|Raleway:400,400i&subset=latin-ext');
+
+pre { color: #555; }
+
+.facebook, .twitter, .instagram, .youtube, .github, .gitlab, .linkedin, .medium {
+  fill: black;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Halant', serif;
+}
+
+h3, h4 {
+  font-weight: 500;
+}
+
+pre, code, kbd {
+  font-family: 'IBM Plex Mono', monospace;
+}
+
+body {
+  font-family: 'Raleway', sans-serif;
+}
