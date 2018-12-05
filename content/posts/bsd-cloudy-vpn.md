@@ -736,7 +736,7 @@ Put it in `/etc/haproxy/haproxy.cfg` and modify as necessary.
 
 ```plain
 global
-        log 127.0.0.1   local0 debug
+        log /log   local0 info
         maxconn 1024
         chroot /var/haproxy
         uid 604
@@ -779,6 +779,25 @@ backend http-ok
 backend https-ok
         mode tcp
         server nextcloud-s 172.16.10.1:443 maxconn 32
+```
+
+Before we start HAProxy, we'll need to configure `syslogd` to create a
+socket within its chroot. First, use your favorite editor to add
+`local0.info /var/log/haproxy` to `/etc/syslogd.conf`. Then:
+
+
+``` shell
+touch /var/log/haproxy
+echo 'syslogd_flags="-a /var/haproxy/log"' >> /etc/rc.conf.local
+rcctl restart syslogd
+```
+
+Or if you're using doas:
+
+``` shell
+doas touch /var/log/haproxy
+echo 'syslogd_flags="-a /var/haproxy/log"' | doas tee -a /etc/rc.conf.local
+doas rcctl restart syslogd
 ```
 
 Uncomment the pass rule for this traffic in pf.conf, then reload the
