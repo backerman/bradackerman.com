@@ -1,12 +1,26 @@
 +++
 title = "A partly-cloudy IPsec VPN"
 author = "Brad Ackerman"
-lastmod = 2018-12-04T19:31:00-05:00
+lastmod = 2018-12-05T11:51:00-05:00
 tags = ["VPN", "IPsec", "OpenBSD", "FreeBSD", "Cloud"]
 draft = false
 +++
 
-## Overview {#overview}
+## Audience
+
+I'm assuming that readers have at least a basic knowledge of TCP/IP
+networking and some UNIX or UNIX-like systems, but not necessarily
+[OpenBSD][openbsd] or [FreeBSD][freebsd]. This post will therefore be
+light on details that aren't OS specific and are likely to be
+encountered in normal use (e.g., how to use vi or another text
+editor.) For more information on these topics, read [Absolute FreeBSD
+(3ed.)][af3] by Michael W. Lucas.
+
+[af3]: https://mwl.io/nonfiction/os#af3e
+[freebsd]: https://www.freebsd.org/
+[openbsd]: https://www.openbsd.org/
+
+## Overview
 
 I'm redoing my [DigitalOcean](https://www.digitalocean.com/) virtual
 machines (which they call droplets). My requirements are:
@@ -23,10 +37,9 @@ The last item is on the list because I don't actually have a public IP
 address at home; my firewall's external address is in the [RFC
 1918](https://www.rfc-editor.org/info/rfc1918) space, and the entire
 apartment building shares a single public IPv4 address.[^1] \(IPv6?
-Don't I wish.) The end-state network will include one
-[OpenBSD](https://www.openbsd.org/) droplet providing firewall,
-router, and VPN services; and one [FreeBSD](https://www.freebsd.org/)
-droplet hosting multiple jailed services.
+Don't I wish.) The end-state network will include one OpenBSD droplet
+providing firewall, router, and VPN services; and one FreeBSD droplet
+hosting multiple jailed services.
 
 [^1]: Rekhter, Moskowitz, Karrenberg, de Groot & Lear, "Address
     Allocation for Private Internets" (1996).
@@ -36,20 +49,26 @@ I'll be providing access via these droplets to a
 the DO router droplet isn't going to work, because packets going from
 home to the internet would exit through the apartment building's
 connection and not through the VPN.  It's possible that I could do
-work around this issue with `pf` packet tagging, but
+work around this issue with packet tagging using the pf firewall, but
 [HAProxy](https://www.haproxy.org/) is simple to configure and
-unlikely to result in hard-to-debug problems. `relayd` is also an
+unlikely to result in hard-to-debug problems. relayd is also an
 option, but doesn't have the TLS parsing abilities of HAProxy, which
 I'll be using later on.
 
-Of course, since this system includes jails running on a VPS, and
-they've got RFC 1918 addresses, I want them reachable from my home
-network. Once that's done, I can access the private address space from
-anywhere through a VPN connection to the cloudy router.
+Since this system includes jails running on a VPS, and they've got RFC
+1918 addresses, I want them reachable from my home network. Once
+that's done, I can access the private address space from anywhere
+through a VPN connection to the [cloudy][xkcdcloud] router.
 
-The VPN itself will be of the IPsec variety. IPsec has a
-(somewhat-deserved) reputation for complexity, but recent versions of
-OpenBSD turn down the difficulty by quite a bit.
+[xkcdcloud]: https://xkcd.com/908/
+
+The VPN itself will be of the IPsec variety. IPsec is the traditional
+enterprise VPN standard, and is even used for [classified
+applications][csfc], but has a (somewhat-deserved) reputation for
+complexity, but recent versions of OpenBSD turn down the difficulty by
+quite a bit.
+
+[csfc]: https://www.nsa.gov/resources/everyone/csfc/
 
 The end-state network should look like:
 
@@ -78,8 +97,10 @@ a FreeBSD ufs droplet and fix it in post. [These
 instructions](https://www.tubsta.com/2015/04/openbsd-on-digital-ocean/)
 will work. Some useful notes:
 
-1. The current OpenBSD version is, as of this writing, 6.4. The below procedure
-both downloads the miniroot and verifies it against the provided checksum.
+1. The current OpenBSD version is, as of this writing, 6.4. The below
+procedure both downloads the miniroot and verifies it against the
+provided checksum. (It won't be explicitly mentioned after this step,
+but pretty much everything in this post will need root privileges.)
 
     ```plain
     $ sudo su -
@@ -88,9 +109,9 @@ both downloads the miniroot and verifies it against the provided checksum.
     SHA256 (miniroot64.fs) = 649b2f412750dee2ef6f42bdd66fb5f015d095b4225fb775a4267aa01e3f80dd
     ```
 
-2. The DigitalOcean console is a bit wonky in OpenBSD for some
-reason; it will frequently interpret the return key as two newlines.
-<kbd><kbd>Ctrl</kbd>-<kbd>J</kbd></kbd> seems to work better for some reason.
+2. The DigitalOcean console is a bit wonky in OpenBSD for some reason;
+it will frequently interpret the return key as two newlines.
+<kbd><kbd>Ctrl</kbd>-<kbd>J</kbd></kbd> seems to work better.
 
 3. The partitioning in the linked instructions works fine, but I prefer to
 have separate log partitions at a minimum, e.g.:
@@ -108,9 +129,9 @@ have separate log partitions at a minimum, e.g.:
 
 ## Configure OpenBSD
 
-After rebooting into the newly-installed system, `sshd` is enabled but
-the root user can't log in. If you didn't create another user yet and
-add them to `wheel`, log in on the console and temporarily change
+After rebooting into the newly-installed system, sshd is enabled but
+the root user can't log in. If you didn't create another user and add
+them to `wheel` yet, log in on the console and temporarily change
 `PermitRootLogin` to `yes` in `/etc/ssh/sshd_config`, then `rcctl
 reload sshd`. `ssh` in, add your public key to
 `/root/.ssh/authorized_keys`, and change `PermitRootLogin` to
@@ -120,10 +141,10 @@ security patches to install; run `syspatch` and reboot.
 
 Unlike other operating systems, the necessary IPsec functionality is
 part of OpenBSD's base system; we'll install HAProxy for later,
-though.  (And also vim, but that's optional.) We'll also set up `doas`
+though.  (And also vim, but that's optional.) We'll also set up doas
 with a configuration equivalent to DigitalOcean's default
-`sudo`---permit users in `wheel` to run commands as root without a
-password, because user accounts don't need them (and disabling `ssh`
+sudo---permit users in `wheel` to run commands as root without a
+password, because user accounts don't need them (and disabling ssh
 password-based login completely negates the Rumpelstiltskin
 attack[^1a]).
 
@@ -131,7 +152,7 @@ attack[^1a]).
     failing that attempt to exhaust the password space. While the bots
     won't be able to successfully guess a password when passwords
     aren't accepted, they'll still clutter the logs; so a blacklisting
-    system such as [`sshguard`](https://www.sshguard.net/) is still
+    system such as [sshguard](https://www.sshguard.net/) is still
     useful.
 
 ``` shell
@@ -204,9 +225,9 @@ just press enter. The password is saved in the CA directory
 (`/etc/ssl/name`), so this would be a less-than-ideal place for
 reuse.
 
-Next, create the keymat itself. `ikectl` is sufficiently intelligent
-to figure out that an FQDN needs to go in the Subject Alternative Name
-field.
+Next, create the keying material (keymat) itself. `ikectl` is
+preconfigured to do the right thing, including putting the system's
+FQDN in the Subject Alternative Name (SAN) field.
 
 ```plain
 # ikectl ca ipsec install
@@ -256,9 +277,8 @@ The `install` subcommand copies the selected certificate to
 `/etc/iked/certs/my.cloudy.host.fqdn.crt` (public) and
 `/etc/iked/private/local.key` (private).
 
-Finally, the `ikectl ca` command does not place the keymat where
-`iked` will look for it, so copy it to the right place in the right
-format.
+Finally, the `ikectl ca` command does not place the keymat where iked
+will look, so copy it to the right place in the right format.
 
 ```shell
 openssl rsa -in /etc/iked/private/local.key -pubout > \
@@ -271,16 +291,16 @@ openssl x509 -pubkey  -in /etc/ssl/ipsec/my.home.router.fqdn.crt \
 
 We'll configure multiple interfaces for the VPN; `enc0` defines the
 endpoint address of the VPN itself, and `gre0` defines the tunnel
-we'll run over it. (GRE is required because we can't run OSPF directly
-over the IPsec tunnel.)
+we'll run over it. (GRE is required because OSPF uses multicast IP
+addresses, which won't directly run over the IPsec tunnel.)
 
 Create `/etc/hostname.enc0` and `/etc/hostname.gre0`:
 
-| Interface | Contents of `/etc/hostname.if`                                                       |
-|-----------|--------------------------------------------------------------------------------------|
-| `enc0`    | `inet 172.16.128.1/32`                                                               |
+| Interface | Contents of `/etc/hostname.if`                                                          |
+|-----------|-----------------------------------------------------------------------------------------|
+| `enc0`    | `inet 172.16.128.1/32`                                                                  |
 | `gre0`    | `inet 172.16.129.1/32`<br />`dest 172.16.129.2`<br />`tunnel 172.16.128.1 172.16.128.2` |
-|           |                                                                                      |
+|           |                                                                                         |
 
 Then bring them up. You'll probably see an error message about the
 `hostname.if` files being insecure; they were world-readable, which
@@ -292,12 +312,23 @@ sh /etc/netstart enc0 gre0
 
 ### sysctls
 
-Create `/etc/sysctl.conf`:
+Some of the necessary features we'll need aren't enabled by
+default. Create `/etc/sysctl.conf`, which will be read on boot:
 
 ``` plain
 net.inet.ip.forwarding=1
 net.inet6.ip6.forwarding=1
 net.inet.gre.allow=1
+net.inet.ipcomp.enable=1
+```
+
+Then activate these changes:
+
+``` shell
+for i in $(cat /etc/sysctl.conf)
+do
+    sysctl $i
+done
 ```
 
 ### VPN and routing configuration
@@ -311,7 +342,7 @@ we'll need to configure and enable:
 -   pf
 -   HAProxy
 
-`iked` handles keying for the VPN endpoints. The daemon configuration
+iked handles keying for the VPN endpoints. The daemon configuration
 (in `/etc/iked.conf`) will look something like this:
 
 ```plain
@@ -335,7 +366,7 @@ client). The `srcid` and `dstid` parameters specify which of the
 
 We use authenticated encryption with associated data (AEAD) for the
 child (ESP) SA, but that's not an option for the parent (IKE)
-SA. `iked`'s configuration doesn't specify the Integrity Check Value
+SA. iked's configuration doesn't specify the Integrity Check Value
 (ICV) length that would follow `aes-256-gcm` in other implementations
 (e.g. `aes-256-gcm16`); this is because you should only use a 16-octet
 ICV.
@@ -348,10 +379,10 @@ chmod 640 /etc/iked.conf
 iked -vvd
 ```
 
-`iked` will display some debug messages to the terminal, but there shouldn't
+iked will display some debug messages to the terminal, but there shouldn't
 be any errors. Press <kbd><kbd>Ctrl</kbd>-<kbd>C</kbd></kbd> to exit.
 
-`ospfd` propagates routing information between the two sites, and is
+ospfd propagates routing information between the two sites, and is
 configured with `/etc/ospfd.conf`:
 
 ```plain
@@ -492,7 +523,7 @@ service pf start
 
 ### IPsec
 
-OpenBSD's `iked` isn't supported on other OSes, so we'll use
+OpenBSD's iked isn't supported on other OSes, so we'll use
 strongSwan instead.
 
 We write a configuration to
@@ -623,8 +654,8 @@ Now you can enable strongSwan in `/etc/rc.conf`.
 sysrc strongswan_enable=YES
 ```
 
-The provided `rc.d` script doesn't load swanctl on startup, so we'll need
-to include our own as `/usr/local/etc/rc.d/strongswan_swanctl`:
+The provided init script doesn't load swanctl on startup, so we'll
+need to include our own as `/usr/local/etc/rc.d/strongswan_swanctl`:
 
 ```shell
 #!/bin/sh
