@@ -25,7 +25,7 @@
         <h1 class="f2 f-subheadline-l fw2 black mb0 lh-title">
           {{ .Title | default .Site.Title }}
         </h1>
-        {{ with .Site.Params.description }}
+        {{ with .Params.description }}
           <h2 class="fw1 f5 f3-l black measure-wide-l center lh-copy mt3 mb4">
             {{ . }}
           </h2>
