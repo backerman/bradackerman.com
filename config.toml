@@ -8,7 +8,7 @@ fractions = true
 footnoteReturnLinkContents = "↩"
 [params]
 #  favicon = ""
-  description = "Brad Ackerman's technical blog"
+  description = "Brad Ackerman’s technical blog"
 #  facebook = ""
   twitter = "https://twitter.com/bsa"
 #  instagram = ""
